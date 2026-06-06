@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>選擇難度</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, "Microsoft JhengHei", sans-serif;
+            background: linear-gradient(135deg, #dff1ff, #f7fbff);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .menu {
+            width: 460px;
+            padding: 42px;
+            background-color: white;
+            border-radius: 20px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            text-align: center;
+        }
+
+        h1 {
+            margin-top: 0;
+            margin-bottom: 40px;
+            font-size: 36px;
+        }
+
+        .button {
+            display: block;
+            margin: 18px auto;
+            padding: 15px;
+            width: 280px;
+            font-size: 20px;
+            text-decoration: none;
+            color: white;
+            background-color: #2b7cff;
+            border-radius: 12px;
+        }
+
+        .button:hover {
+            background-color: #125fd1;
+        }
+
+        .hard-button {
+            background-color: #d9534f;
+        }
+
+        .hard-button:hover {
+            background-color: #b52b27;
+        }
+
+        .back-button {
+            background-color: #555;
+        }
+
+        .back-button:hover {
+            background-color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="menu">
+        <h1>選擇難度</h1>
+
+        <a class="button" href="/game/easy">簡單模式</a>
+        <a class="button hard-button" href="/game/hard">困難模式</a>
+        <a class="button back-button" href="/">返回主選單</a>
+    </div>
+</body>
+</html>
