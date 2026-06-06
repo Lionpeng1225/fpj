@@ -1,3 +1,4 @@
 # fpj
 Taipei City Orienteering
-data.7z need to unzip
+1.data.7z need to unzip
+2.you need to apply your Google Maps JavaScript API Key
