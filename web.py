@@ -35,28 +35,48 @@ def difficulty():
 def game(level):
     questions = get_random_questions(level, 10)
 
+    building_collision_enabled = (
+        request.args.get(
+            "building_collision",
+            "1"
+        ) != "0"
+    )
+
     taipei_map = create_taipei_map()
     outer_rings = get_taipei_outer_rings()
 
     # 加入捷運路線與站點
     add_mrt_routes(taipei_map)
 
-    # 加入左下角「使用捷運」按鈕
+    # 加入左下角捷運選單
     add_mrt_menu(taipei_map)
 
     # 加入虛擬人物
-    add_virtual_person(taipei_map)
+    add_virtual_person(
+        taipei_map,
+        building_collision_enabled=building_collision_enabled
+    )
 
     # 加入右下角人物所在地街景
     add_street_view_panel(taipei_map)
 
-    # 加入可走 / 不可走圖層
-    add_walkability_layer(taipei_map)
+    # 只有開啟建築物阻擋時才加入建築物圖層
+    if building_collision_enabled:
+        add_walkability_layer(taipei_map)
 
-    # 加入遊戲功能
-    add_question_panel(taipei_map, questions, level)
+    # 加入題目、遊戲選單與結算功能
+    add_question_panel(
+        taipei_map,
+        questions,
+        level
+    )
+
     add_game_menu(taipei_map)
-    add_result_panel(taipei_map, questions)
+
+    add_result_panel(
+        taipei_map,
+        questions
+    )
 
     html = render_map_html(taipei_map)
 
@@ -76,11 +96,6 @@ def rules():
 
 @app.route("/api/search")
 def search_location():
-    """
-    地點搜尋 API 路由。
-    實際的 Nominatim API 呼叫在 geocoding_service.py。
-    """
-
     query = request.args.get("q", "").strip()
 
     if not query:
@@ -93,17 +108,17 @@ def search_location():
 
 @app.route("/api/route")
 def get_route():
-    """
-    路線距離 API 路由。
-    實際的 OSRM API 呼叫在 route_service.py。
-    """
-
     start_lat = request.args.get("start_lat")
     start_lng = request.args.get("start_lng")
     end_lat = request.args.get("end_lat")
     end_lng = request.args.get("end_lng")
 
-    if not all([start_lat, start_lng, end_lat, end_lng]):
+    if not all([
+        start_lat,
+        start_lng,
+        end_lat,
+        end_lng
+    ]):
         return jsonify({
             "error": "缺少座標參數",
             "routes": []

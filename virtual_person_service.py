@@ -1,4 +1,3 @@
-# virtual_person_service.py
 import json
 
 import folium
@@ -10,39 +9,67 @@ from building_collision_service import get_building_collision_json
 TAIPEI_MAIN_STATION = {
     "name": "台北車站",
     "lat": 25.0462258,
-    "lng": 121.5174848,
+    "lng": 121.5174848
 }
 
-# 玩家可以放置答案標記的範圍，單位為公尺
 ANSWER_RANGE_RADIUS_METERS = 100
 
-# 每次按方向鍵移動的經緯度差
-# 在台北附近約等於 8～9 公尺
+# 每按一次方向鍵約移動 8～9 公尺
 MOVE_STEP = 0.00008
 
 
-def add_virtual_person(taipei_map):
+def add_virtual_person(
+    taipei_map,
+    building_collision_enabled=True
+):
     """
-    在地圖上加入虛擬人物與作答範圍。
+    加入虛擬人物。
 
-    功能：
-    1. 起始位置為台北車站
-    2. 使用鍵盤方向鍵移動
-    3. 每次約移動 8～9 公尺
-    4. 人物不能移出台北市邊界
-    5. 人物不能進入或穿越建築物
-    6. 人物周圍顯示 100 公尺作答範圍
-    7. 提供人物位置給標記、捷運及街景功能使用
-    8. 提供建築物資料給可走／不可走圖層使用
+    building_collision_enabled=True：
+        人物不能穿越建築物。
+
+    building_collision_enabled=False：
+        不載入建築資料，人物可以穿越建築物。
     """
 
     outer_rings = get_taipei_outer_rings()
+
     outer_rings_json = json.dumps(
         outer_rings,
-        ensure_ascii=False,
+        ensure_ascii=False
     )
 
-    building_collision_json = get_building_collision_json()
+    if building_collision_enabled:
+        building_collision_json = (
+            get_building_collision_json()
+        )
+    else:
+        building_collision_json = json.dumps(
+            {
+                "gridSize": 0.001,
+                "buildings": [],
+                "grid": {}
+            },
+            ensure_ascii=False
+        )
+
+    collision_enabled_json = (
+        "true"
+        if building_collision_enabled
+        else "false"
+    )
+
+    collision_status_text = (
+        "建築物阻擋：開啟"
+        if building_collision_enabled
+        else "建築物阻擋：關閉"
+    )
+
+    collision_status_class = (
+        "enabled"
+        if building_collision_enabled
+        else "disabled"
+    )
 
     person_html = """
     <div class="virtual-person-icon">
@@ -53,7 +80,7 @@ def add_virtual_person(taipei_map):
     virtual_person_marker = folium.Marker(
         location=[
             TAIPEI_MAIN_STATION["lat"],
-            TAIPEI_MAIN_STATION["lng"],
+            TAIPEI_MAIN_STATION["lng"]
         ],
         popup="虛擬人物目前位置：台北車站",
         tooltip="虛擬人物",
@@ -62,8 +89,8 @@ def add_virtual_person(taipei_map):
             html=person_html,
             icon_size=(36, 36),
             icon_anchor=(18, 18),
-            popup_anchor=(0, -18),
-        ),
+            popup_anchor=(0, -18)
+        )
     )
 
     virtual_person_marker.add_to(taipei_map)
@@ -72,6 +99,13 @@ def add_virtual_person(taipei_map):
     map_name = taipei_map.get_name()
 
     html = f"""
+    <div
+        id="building-collision-status"
+        class="{collision_status_class}"
+    >
+        {collision_status_text}
+    </div>
+
     <style>
         .virtual-person-icon {{
             width: 34px;
@@ -86,23 +120,58 @@ def add_virtual_person(taipei_map):
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
             user-select: none;
         }}
+
+        #building-collision-status {{
+            position: fixed;
+            left: 14px;
+            bottom: 112px;
+            z-index: 9998;
+            padding: 8px 11px;
+            border-radius: 10px;
+            color: white;
+            font-size: 13px;
+            font-weight: bold;
+            font-family: Arial, "Microsoft JhengHei", sans-serif;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+            pointer-events: none;
+        }}
+
+        #building-collision-status.enabled {{
+            background-color: rgba(33, 136, 56, 0.92);
+        }}
+
+        #building-collision-status.disabled {{
+            background-color: rgba(100, 100, 100, 0.92);
+        }}
     </style>
 
     <script>
         (function() {{
             var moveStep = {MOVE_STEP};
-            var answerRangeRadiusMeters = {ANSWER_RANGE_RADIUS_METERS};
 
-            var taipeiOuterRings = {outer_rings_json};
-            var buildingCollisionData = {building_collision_json};
+            var answerRangeRadiusMeters =
+                {ANSWER_RANGE_RADIUS_METERS};
 
-            /*
-             * 提供給 walkability_layer_service.py 使用。
-             * 可走／不可走圖層會讀取這份資料畫出紅色建築物。
-             */
-            window.buildingCollisionData = buildingCollisionData;
+            var taipeiOuterRings =
+                {outer_rings_json};
 
-            function isPointInRing(lat, lng, ring) {{
+            var buildingCollisionEnabled =
+                {collision_enabled_json};
+
+            var buildingCollisionData =
+                {building_collision_json};
+
+            window.buildingCollisionEnabled =
+                buildingCollisionEnabled;
+
+            window.buildingCollisionData =
+                buildingCollisionData;
+
+            function isPointInRing(
+                lat,
+                lng,
+                ring
+            ) {{
                 var inside = false;
                 var x = lng;
                 var y = lat;
@@ -124,7 +193,10 @@ def add_virtual_person(taipei_map):
                             (
                                 (xj - xi) *
                                 (y - yi) /
-                                (yj - yi + 0.0000000001)
+                                (
+                                    yj - yi +
+                                    0.0000000001
+                                )
                             ) + xi
                         );
 
@@ -136,7 +208,10 @@ def add_virtual_person(taipei_map):
                 return inside;
             }}
 
-            function isInsideTaipei(lat, lng) {{
+            function isInsideTaipei(
+                lat,
+                lng
+            ) {{
                 for (
                     var index = 0;
                     index < taipeiOuterRings.length;
@@ -156,16 +231,35 @@ def add_virtual_person(taipei_map):
                 return false;
             }}
 
-            function getGridIndex(value, gridSize) {{
-                return Math.floor(value / gridSize);
+            function getGridIndex(
+                value,
+                gridSize
+            ) {{
+                return Math.floor(
+                    value / gridSize
+                );
             }}
 
-            function getGridKey(latIndex, lngIndex) {{
-                return latIndex + ":" + lngIndex;
+            function getGridKey(
+                latIndex,
+                lngIndex
+            ) {{
+                return (
+                    latIndex +
+                    ":" +
+                    lngIndex
+                );
             }}
 
-            function isInsideBuildingBBox(lat, lng, bbox) {{
-                if (!bbox || bbox.length < 4) {{
+            function isInsideBuildingBBox(
+                lat,
+                lng,
+                bbox
+            ) {{
+                if (
+                    !bbox ||
+                    bbox.length < 4
+                ) {{
                     return false;
                 }}
 
@@ -177,7 +271,14 @@ def add_virtual_person(taipei_map):
                 );
             }}
 
-            function getNearbyBuildingIndexes(lat, lng) {{
+            function getNearbyBuildingIndexes(
+                lat,
+                lng
+            ) {{
+                if (!buildingCollisionEnabled) {{
+                    return [];
+                }}
+
                 if (
                     !buildingCollisionData ||
                     !buildingCollisionData.grid ||
@@ -187,27 +288,42 @@ def add_virtual_person(taipei_map):
                 }}
 
                 var gridSize =
-                    buildingCollisionData.gridSize || 0.001;
+                    buildingCollisionData.gridSize ||
+                    0.001;
 
-                var latIndex = getGridIndex(lat, gridSize);
-                var lngIndex = getGridIndex(lng, gridSize);
+                var latIndex =
+                    getGridIndex(
+                        lat,
+                        gridSize
+                    );
+
+                var lngIndex =
+                    getGridIndex(
+                        lng,
+                        gridSize
+                    );
 
                 var indexMap = {{}};
                 var result = [];
 
-                /*
-                 * 搜尋目前網格及周圍八個網格，
-                 * 避免人物剛好位於網格邊界時漏掉建築物。
-                 */
-                for (var dLat = -1; dLat <= 1; dLat++) {{
-                    for (var dLng = -1; dLng <= 1; dLng++) {{
+                for (
+                    var dLat = -1;
+                    dLat <= 1;
+                    dLat++
+                ) {{
+                    for (
+                        var dLng = -1;
+                        dLng <= 1;
+                        dLng++
+                    ) {{
                         var key = getGridKey(
                             latIndex + dLat,
                             lngIndex + dLng
                         );
 
                         var indexes =
-                            buildingCollisionData.grid[key];
+                            buildingCollisionData
+                                .grid[key];
 
                         if (!indexes) {{
                             continue;
@@ -218,16 +334,24 @@ def add_virtual_person(taipei_map):
                             i < indexes.length;
                             i++
                         ) {{
-                            var buildingIndex = indexes[i];
+                            var buildingIndex =
+                                indexes[i];
 
                             if (
-                                !Object.prototype.hasOwnProperty.call(
-                                    indexMap,
-                                    buildingIndex
-                                )
+                                !Object.prototype
+                                    .hasOwnProperty
+                                    .call(
+                                        indexMap,
+                                        buildingIndex
+                                    )
                             ) {{
-                                indexMap[buildingIndex] = true;
-                                result.push(buildingIndex);
+                                indexMap[
+                                    buildingIndex
+                                ] = true;
+
+                                result.push(
+                                    buildingIndex
+                                );
                             }}
                         }}
                     }}
@@ -236,19 +360,23 @@ def add_virtual_person(taipei_map):
                 return result;
             }}
 
-            function isInsideBuilding(lat, lng) {{
-                if (
-                    !buildingCollisionData ||
-                    !buildingCollisionData.buildings
-                ) {{
+            function isInsideBuilding(
+                lat,
+                lng
+            ) {{
+                if (!buildingCollisionEnabled) {{
                     return false;
                 }}
 
                 var buildingIndexes =
-                    getNearbyBuildingIndexes(lat, lng);
+                    getNearbyBuildingIndexes(
+                        lat,
+                        lng
+                    );
 
                 var buildings =
-                    buildingCollisionData.buildings;
+                    buildingCollisionData
+                        .buildings || [];
 
                 for (
                     var i = 0;
@@ -256,7 +384,9 @@ def add_virtual_person(taipei_map):
                     i++
                 ) {{
                     var building =
-                        buildings[buildingIndexes[i]];
+                        buildings[
+                            buildingIndexes[i]
+                        ];
 
                     if (!building) {{
                         continue;
@@ -287,45 +417,51 @@ def add_virtual_person(taipei_map):
                 return false;
             }}
 
-            /*
-             * 檢查從目前位置走到新位置的整段路徑。
-             *
-             * 不能只檢查終點，否則人物移動距離較大時，
-             * 有可能從建築物一側直接跳到另一側。
-             */
             function doesPathCrossBuilding(
                 startLat,
                 startLng,
                 endLat,
                 endLng
             ) {{
-                var latDifference = endLat - startLat;
-                var lngDifference = endLng - startLng;
+                if (!buildingCollisionEnabled) {{
+                    return false;
+                }}
 
-                var largestDifference = Math.max(
-                    Math.abs(latDifference),
-                    Math.abs(lngDifference)
-                );
+                var latDifference =
+                    endLat - startLat;
 
-                /*
-                 * 每隔約 0.000015 度檢查一次。
-                 * 在台北附近約為 1～2 公尺。
-                 */
-                var pathCheckStep = 0.000015;
+                var lngDifference =
+                    endLng - startLng;
 
-                var checkCount = Math.max(
-                    1,
-                    Math.ceil(
-                        largestDifference / pathCheckStep
-                    )
-                );
+                var largestDifference =
+                    Math.max(
+                        Math.abs(
+                            latDifference
+                        ),
+                        Math.abs(
+                            lngDifference
+                        )
+                    );
+
+                var pathCheckStep =
+                    0.000015;
+
+                var checkCount =
+                    Math.max(
+                        1,
+                        Math.ceil(
+                            largestDifference /
+                            pathCheckStep
+                        )
+                    );
 
                 for (
                     var index = 1;
                     index <= checkCount;
                     index++
                 ) {{
-                    var ratio = index / checkCount;
+                    var ratio =
+                        index / checkCount;
 
                     var checkLat =
                         startLat +
@@ -349,21 +485,39 @@ def add_virtual_person(taipei_map):
             }}
 
             function setupVirtualPerson() {{
-                if (typeof {marker_name} === "undefined") {{
-                    console.error("找不到虛擬人物標記");
+                if (
+                    typeof {marker_name} ===
+                    "undefined"
+                ) {{
+                    console.error(
+                        "找不到虛擬人物標記"
+                    );
+
                     return;
                 }}
 
-                if (typeof {map_name} === "undefined") {{
-                    console.error("找不到 Folium 地圖");
+                if (
+                    typeof {map_name} ===
+                    "undefined"
+                ) {{
+                    console.error(
+                        "找不到 Folium 地圖"
+                    );
+
                     return;
                 }}
 
-                var virtualPersonMarker = {marker_name};
-                var map = {map_name};
+                var virtualPersonMarker =
+                    {marker_name};
 
-                var startLat = {TAIPEI_MAIN_STATION["lat"]};
-                var startLng = {TAIPEI_MAIN_STATION["lng"]};
+                var map =
+                    {map_name};
+
+                var startLat =
+                    {TAIPEI_MAIN_STATION["lat"]};
+
+                var startLng =
+                    {TAIPEI_MAIN_STATION["lng"]};
 
                 window.virtualPersonMarker =
                     virtualPersonMarker;
@@ -371,39 +525,64 @@ def add_virtual_person(taipei_map):
                 window.virtualPersonRangeRadiusMeters =
                     answerRangeRadiusMeters;
 
-                var rangeCircle = L.circle(
-                    [startLat, startLng],
-                    {{
-                        radius: answerRangeRadiusMeters,
-                        color: "#333333",
-                        weight: 2,
-                        fillColor: "#3388ff",
-                        fillOpacity: 0.12,
-                        dashArray: "6, 6",
-                        interactive: false
-                    }}
-                ).addTo(map);
+                var rangeCircle =
+                    L.circle(
+                        [
+                            startLat,
+                            startLng
+                        ],
+                        {{
+                            radius:
+                                answerRangeRadiusMeters,
+
+                            color:
+                                "#333333",
+
+                            weight:
+                                2,
+
+                            fillColor:
+                                "#3388ff",
+
+                            fillOpacity:
+                                0.12,
+
+                            dashArray:
+                                "6, 6",
+
+                            interactive:
+                                false
+                        }}
+                    ).addTo(map);
 
                 window.virtualPersonRangeCircle =
                     rangeCircle;
 
                 window.getVirtualPersonLatLng =
                     function() {{
-                        return virtualPersonMarker.getLatLng();
+                        return (
+                            virtualPersonMarker
+                                .getLatLng()
+                        );
                     }};
 
                 window.isInsideVirtualPersonRange =
                     function(lat, lng) {{
                         var personLatLng =
-                            virtualPersonMarker.getLatLng();
+                            virtualPersonMarker
+                                .getLatLng();
 
                         var targetLatLng =
-                            L.latLng(lat, lng);
+                            L.latLng(
+                                lat,
+                                lng
+                            );
 
-                        var distance = map.distance(
-                            personLatLng,
-                            targetLatLng
-                        );
+                        var distance =
+                            map.distance(
+                                personLatLng,
+                                targetLatLng
+                            );
 
                         return (
                             distance <=
@@ -413,18 +592,25 @@ def add_virtual_person(taipei_map):
 
                 window.isInsideTaipeiBoundary =
                     function(lat, lng) {{
-                        return isInsideTaipei(lat, lng);
+                        return isInsideTaipei(
+                            lat,
+                            lng
+                        );
                     }};
 
                 window.isInsideBuilding =
                     function(lat, lng) {{
-                        return isInsideBuilding(lat, lng);
+                        return isInsideBuilding(
+                            lat,
+                            lng
+                        );
                     }};
 
                 function showBoundaryWarning() {{
                     L.popup()
                         .setLatLng(
-                            virtualPersonMarker.getLatLng()
+                            virtualPersonMarker
+                                .getLatLng()
                         )
                         .setContent(
                             "虛擬人物不能移出台北市邊界"
@@ -435,7 +621,8 @@ def add_virtual_person(taipei_map):
                 function showBuildingWarning() {{
                     L.popup()
                         .setLatLng(
-                            virtualPersonMarker.getLatLng()
+                            virtualPersonMarker
+                                .getLatLng()
                         )
                         .setContent(
                             "前方是建築物，虛擬人物不能穿越"
@@ -453,35 +640,47 @@ def add_virtual_person(taipei_map):
                             "virtualPersonMoved",
                             {{
                                 detail: {{
-                                    lat: newLat,
-                                    lng: newLng,
+                                    lat:
+                                        newLat,
+
+                                    lng:
+                                        newLng,
+
                                     movementType:
-                                        movementType || "walking"
+                                        movementType ||
+                                        "walking"
                                 }}
                             }}
                         )
                     );
 
                     if (
-                        typeof window.updateMrtButtonState ===
+                        typeof window
+                            .updateMrtButtonState ===
                         "function"
                     ) {{
-                        window.updateMrtButtonState();
+                        window
+                            .updateMrtButtonState();
                     }}
 
                     if (
-                        typeof window.scheduleStreetViewUpdate ===
+                        typeof window
+                            .scheduleStreetViewUpdate ===
                         "function"
                     ) {{
-                        window.scheduleStreetViewUpdate();
+                        window
+                            .scheduleStreetViewUpdate();
                     }}
 
                     if (
-                        window.walkabilityLayerEnabled &&
-                        typeof window.scheduleWalkabilityRender ===
-                        "function"
+                        window
+                            .walkabilityLayerEnabled &&
+                        typeof window
+                            .scheduleWalkabilityRender ===
+                            "function"
                     ) {{
-                        window.scheduleWalkabilityRender();
+                        window
+                            .scheduleWalkabilityRender();
                     }}
                 }}
 
@@ -490,17 +689,20 @@ def add_virtual_person(taipei_map):
                     newLng,
                     options
                 ) {{
-                    options = options || {{}};
+                    options =
+                        options || {{}};
 
-                    virtualPersonMarker.setLatLng([
-                        newLat,
-                        newLng
-                    ]);
+                    virtualPersonMarker
+                        .setLatLng([
+                            newLat,
+                            newLng
+                        ]);
 
-                    rangeCircle.setLatLng([
-                        newLat,
-                        newLng
-                    ]);
+                    rangeCircle
+                        .setLatLng([
+                            newLat,
+                            newLng
+                        ]);
 
                     var popupText =
                         "虛擬人物目前位置<br>" +
@@ -512,7 +714,12 @@ def add_virtual_person(taipei_map):
                         "<br>" +
                         "作答範圍：" +
                         answerRangeRadiusMeters +
-                        " 公尺";
+                        " 公尺<br>" +
+                        (
+                            buildingCollisionEnabled
+                                ? "建築物阻擋：開啟"
+                                : "建築物阻擋：關閉"
+                        );
 
                     if (options.locationName) {{
                         popupText +=
@@ -520,20 +727,30 @@ def add_virtual_person(taipei_map):
                             options.locationName;
                     }}
 
-                    virtualPersonMarker.bindPopup(
-                        popupText
-                    );
+                    virtualPersonMarker
+                        .bindPopup(
+                            popupText
+                        );
 
                     if (options.openPopup) {{
-                        virtualPersonMarker.openPopup();
+                        virtualPersonMarker
+                            .openPopup();
                     }}
 
-                    if (options.panMap !== false) {{
+                    if (
+                        options.panMap !== false
+                    ) {{
                         map.panTo(
-                            [newLat, newLng],
+                            [
+                                newLat,
+                                newLng
+                            ],
                             {{
-                                animate: true,
-                                duration: 0.15
+                                animate:
+                                    true,
+
+                                duration:
+                                    0.15
                             }}
                         );
                     }}
@@ -552,16 +769,26 @@ def add_virtual_person(taipei_map):
                     newLng,
                     options
                 ) {{
-                    options = options || {{}};
+                    options =
+                        options || {{}};
 
                     if (
-                        !Number.isFinite(newLat) ||
-                        !Number.isFinite(newLng)
+                        !Number.isFinite(
+                            newLat
+                        ) ||
+                        !Number.isFinite(
+                            newLng
+                        )
                     ) {{
                         return false;
                     }}
 
-                    if (!isInsideTaipei(newLat, newLng)) {{
+                    if (
+                        !isInsideTaipei(
+                            newLat,
+                            newLng
+                        )
+                    ) {{
                         if (!options.silent) {{
                             showBoundaryWarning();
                         }}
@@ -570,14 +797,16 @@ def add_virtual_person(taipei_map):
                     }}
 
                     var currentLatLng =
-                        virtualPersonMarker.getLatLng();
+                        virtualPersonMarker
+                            .getLatLng();
 
-                    /*
-                     * 捷運移動不需要檢查沿途建築物，
-                     * 因為它不是人物步行穿越建築物。
-                     * 但仍檢查目的地是否落在建築物內。
-                     */
-                    if (isInsideBuilding(newLat, newLng)) {{
+                    if (
+                        buildingCollisionEnabled &&
+                        isInsideBuilding(
+                            newLat,
+                            newLng
+                        )
+                    ) {{
                         if (!options.silent) {{
                             showBuildingWarning();
                         }}
@@ -586,6 +815,7 @@ def add_virtual_person(taipei_map):
                     }}
 
                     if (
+                        buildingCollisionEnabled &&
                         !options.skipPathCollision &&
                         doesPathCrossBuilding(
                             currentLatLng.lat,
@@ -601,39 +831,35 @@ def add_virtual_person(taipei_map):
                         return false;
                     }}
 
-                    return applyVirtualPersonPosition(
-                        newLat,
-                        newLng,
-                        options
+                    return (
+                        applyVirtualPersonPosition(
+                            newLat,
+                            newLng,
+                            options
+                        )
                     );
                 }}
 
-                /*
-                 * 給其他功能使用的統一人物移動函式。
-                 *
-                 * 一般步行：
-                 * window.moveVirtualPersonToLatLng(lat, lng)
-                 *
-                 * 捷運移動：
-                 * window.moveVirtualPersonToLatLng(lat, lng, {{
-                 *     skipPathCollision: true,
-                 *     movementType: "mrt",
-                 *     locationName: "R10 台北車站"
-                 * }})
-                 */
                 window.moveVirtualPersonToLatLng =
-                    function(lat, lng, options) {{
-                        return moveVirtualPerson(
-                            Number(lat),
-                            Number(lng),
-                            options || {{}}
+                    function(
+                        lat,
+                        lng,
+                        options
+                    ) {{
+                        return (
+                            moveVirtualPerson(
+                                Number(lat),
+                                Number(lng),
+                                options || {{}}
+                            )
                         );
                     }};
 
                 document.addEventListener(
                     "keydown",
                     function(event) {{
-                        var key = event.key;
+                        var key =
+                            event.key;
 
                         if (
                             key !== "ArrowUp" &&
@@ -644,23 +870,26 @@ def add_virtual_person(taipei_map):
                             return;
                         }}
 
-                        /*
-                         * 使用者正在輸入文字時，
-                         * 不攔截方向鍵。
-                         */
                         var activeElement =
                             document.activeElement;
 
                         if (
                             activeElement &&
                             (
-                                activeElement.tagName ===
+                                activeElement
+                                    .tagName ===
                                     "INPUT" ||
-                                activeElement.tagName ===
+
+                                activeElement
+                                    .tagName ===
                                     "TEXTAREA" ||
-                                activeElement.tagName ===
+
+                                activeElement
+                                    .tagName ===
                                     "SELECT" ||
-                                activeElement.isContentEditable
+
+                                activeElement
+                                    .isContentEditable
                             )
                         ) {{
                             return;
@@ -669,7 +898,8 @@ def add_virtual_person(taipei_map):
                         event.preventDefault();
 
                         var currentLatLng =
-                            virtualPersonMarker.getLatLng();
+                            virtualPersonMarker
+                                .getLatLng();
 
                         var newLat =
                             currentLatLng.lat;
@@ -677,29 +907,50 @@ def add_virtual_person(taipei_map):
                         var newLng =
                             currentLatLng.lng;
 
-                        if (key === "ArrowUp") {{
-                            newLat += moveStep;
+                        if (
+                            key ===
+                            "ArrowUp"
+                        ) {{
+                            newLat +=
+                                moveStep;
                         }}
 
-                        if (key === "ArrowDown") {{
-                            newLat -= moveStep;
+                        if (
+                            key ===
+                            "ArrowDown"
+                        ) {{
+                            newLat -=
+                                moveStep;
                         }}
 
-                        if (key === "ArrowLeft") {{
-                            newLng -= moveStep;
+                        if (
+                            key ===
+                            "ArrowLeft"
+                        ) {{
+                            newLng -=
+                                moveStep;
                         }}
 
-                        if (key === "ArrowRight") {{
-                            newLng += moveStep;
+                        if (
+                            key ===
+                            "ArrowRight"
+                        ) {{
+                            newLng +=
+                                moveStep;
                         }}
 
                         moveVirtualPerson(
                             newLat,
                             newLng,
                             {{
-                                movementType: "walking",
-                                skipPathCollision: false,
-                                panMap: true
+                                movementType:
+                                    "walking",
+
+                                skipPathCollision:
+                                    false,
+
+                                panMap:
+                                    true
                             }}
                         );
                     }}
@@ -712,7 +963,10 @@ def add_virtual_person(taipei_map):
                 );
             }}
 
-            if (document.readyState === "loading") {{
+            if (
+                document.readyState ===
+                "loading"
+            ) {{
                 document.addEventListener(
                     "DOMContentLoaded",
                     setupVirtualPerson

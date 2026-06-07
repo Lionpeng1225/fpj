@@ -9,37 +9,143 @@
             margin: 0;
             font-family: Arial, "Microsoft JhengHei", sans-serif;
             background: linear-gradient(135deg, #dff1ff, #f7fbff);
-            height: 100vh;
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
         }
 
         .menu {
-            width: 460px;
+            width: 480px;
             padding: 42px;
             background-color: white;
             border-radius: 20px;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
             text-align: center;
+            box-sizing: border-box;
         }
 
         h1 {
             margin-top: 0;
-            margin-bottom: 40px;
+            margin-bottom: 28px;
             font-size: 36px;
+        }
+
+        .setting-box {
+            margin-bottom: 28px;
+            padding: 18px;
+            border: 1px solid #d4dce8;
+            border-radius: 14px;
+            background-color: #f7faff;
+            text-align: left;
+        }
+
+        .setting-title {
+            margin-bottom: 12px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #222222;
+        }
+
+        .switch-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .switch-text {
+            flex: 1;
+        }
+
+        .switch-label {
+            display: block;
+            font-size: 17px;
+            font-weight: bold;
+            color: #333333;
+        }
+
+        .switch-description {
+            display: block;
+            margin-top: 5px;
+            color: #666666;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 58px;
+            height: 32px;
+            flex-shrink: 0;
+        }
+
+        .switch input {
+            width: 0;
+            height: 0;
+            opacity: 0;
+        }
+
+        .slider {
+            position: absolute;
+            inset: 0;
+            cursor: pointer;
+            background-color: #aaaaaa;
+            border-radius: 32px;
+            transition: 0.25s;
+        }
+
+        .slider::before {
+            position: absolute;
+            content: "";
+            width: 24px;
+            height: 24px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            border-radius: 50%;
+            transition: 0.25s;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25);
+        }
+
+        .switch input:checked + .slider {
+            background-color: #2b7cff;
+        }
+
+        .switch input:checked + .slider::before {
+            transform: translateX(26px);
+        }
+
+        #collision-status {
+            margin-top: 12px;
+            padding: 9px 12px;
+            border-radius: 9px;
+            background-color: #e8f2ff;
+            color: #1558a6;
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        #collision-status.disabled {
+            background-color: #f1f1f1;
+            color: #666666;
         }
 
         .button {
             display: block;
-            margin: 18px auto;
+            margin: 16px auto;
             padding: 15px;
             width: 280px;
+            border: none;
             font-size: 20px;
             text-decoration: none;
             color: white;
             background-color: #2b7cff;
             border-radius: 12px;
+            cursor: pointer;
+            font-family: Arial, "Microsoft JhengHei", sans-serif;
         }
 
         .button:hover {
@@ -55,21 +161,107 @@
         }
 
         .back-button {
-            background-color: #555;
+            background-color: #555555;
         }
 
         .back-button:hover {
-            background-color: #333;
+            background-color: #333333;
         }
     </style>
 </head>
+
 <body>
     <div class="menu">
         <h1>選擇難度</h1>
 
-        <a class="button" href="/game/easy">簡單模式</a>
-        <a class="button hard-button" href="/game/hard">困難模式</a>
-        <a class="button back-button" href="/">返回主選單</a>
+        <div class="setting-box">
+            <div class="setting-title">遊戲設定</div>
+
+            <div class="switch-row">
+                <div class="switch-text">
+                    <span class="switch-label">建築物阻擋</span>
+
+                    <span class="switch-description">
+                        開啟後，虛擬人物不能穿越建築物；
+                        關閉後可以自由移動。
+                    </span>
+                </div>
+
+                <label class="switch">
+                    <input
+                        type="checkbox"
+                        id="building-collision-checkbox"
+                        checked
+                        onchange="updateCollisionStatus()"
+                    >
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div id="collision-status">
+                已開啟建築物阻擋
+            </div>
+        </div>
+
+        <button
+            class="button"
+            type="button"
+            onclick="startGame('easy')"
+        >
+            簡單模式
+        </button>
+
+        <button
+            class="button hard-button"
+            type="button"
+            onclick="startGame('hard')"
+        >
+            困難模式
+        </button>
+
+        <a class="button back-button" href="/">
+            返回主選單
+        </a>
     </div>
+
+    <script>
+        function isBuildingCollisionEnabled() {
+            var checkbox = document.getElementById(
+                "building-collision-checkbox"
+            );
+
+            return checkbox && checkbox.checked;
+        }
+
+        function updateCollisionStatus() {
+            var status = document.getElementById("collision-status");
+
+            if (!status) {
+                return;
+            }
+
+            if (isBuildingCollisionEnabled()) {
+                status.innerText = "已開啟建築物阻擋";
+                status.classList.remove("disabled");
+            } else {
+                status.innerText = "已關閉建築物阻擋";
+                status.classList.add("disabled");
+            }
+        }
+
+        function startGame(level) {
+            var collisionValue = isBuildingCollisionEnabled()
+                ? "1"
+                : "0";
+
+            window.location.href =
+                "/game/" +
+                encodeURIComponent(level) +
+                "?building_collision=" +
+                collisionValue;
+        }
+
+        updateCollisionStatus();
+    </script>
 </body>
 </html>
